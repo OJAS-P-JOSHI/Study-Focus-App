@@ -1,0 +1,21 @@
+{
+  "name": "study-focus-app",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev --workspace=api",
+    "dev:mobile": "npm run start --workspace=mobile",
+    "build:api": "npm run build --workspace=api",
+    "typecheck": "npm run typecheck --workspace=mobile && npm run typecheck --workspace=api",
+    "lint": "npm run lint --workspace=mobile && npm run lint --workspace=api",
+    "test": "npm run test --workspace=api -- --runInBand",
+    "validate": "npm run typecheck && npm run test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
