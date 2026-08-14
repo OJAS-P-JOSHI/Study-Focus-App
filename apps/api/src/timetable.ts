@@ -23,6 +23,7 @@ import {
   Matches,
   Max,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { Model, Types } from 'mongoose';
 import type { AuthUser } from './common';
@@ -79,8 +80,9 @@ export class UpdateTimetableDto {
   subjectId?: string;
 
   @IsOptional()
+  @ValidateIf((_object, value) => value !== null)
   @IsMongoId()
-  taskId?: string;
+  taskId?: string | null;
 
   @IsOptional()
   @IsString()
@@ -169,11 +171,13 @@ export class TimetableService {
     await this.assertRelations(
       userId,
       dto.subjectId ?? current.subjectId.toString(),
-      dto.taskId,
+      dto.taskId === undefined
+        ? current.taskId?.toString()
+        : (dto.taskId ?? undefined),
     );
     const entry = await this.entries
-      .findByIdAndUpdate(
-        id,
+      .findOneAndUpdate(
+        { _id: id, userId: new Types.ObjectId(userId) },
         {
           ...dto,
           title: dto.title?.trim(),
@@ -190,8 +194,12 @@ export class TimetableService {
   }
 
   async remove(userId: string, id: string) {
-    await this.get(userId, id);
-    await this.entries.findByIdAndDelete(id);
+    const result = await this.entries.deleteOne({
+      _id: id,
+      userId: new Types.ObjectId(userId),
+    });
+    if (!result.deletedCount)
+      throw new NotFoundException('Timetable entry not found');
     return { deleted: true };
   }
 
@@ -216,6 +224,9 @@ export class TimetableService {
         userId: new Types.ObjectId(userId),
       });
       if (!task) throw new BadRequestException('Task not found');
+      if (task.subjectId?.toString() !== subjectId) {
+        throw new BadRequestException('Task does not belong to the selected subject');
+      }
     }
   }
 }

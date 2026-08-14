@@ -63,6 +63,29 @@ export type ApiFocusSession = {
   distractionCount: number;
 };
 
+export type ApiTimetableEntry = {
+  id: string;
+  subjectId: ApiSubject | string;
+  taskId?: ApiTask | string;
+  title: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  targetMinutes: number;
+  isEnabled: boolean;
+};
+
+export type TimetableInput = {
+  subjectId: string;
+  taskId?: string | null;
+  title: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  targetMinutes: number;
+  isEnabled?: boolean;
+};
+
 async function data<T>(request: Promise<{ data: ApiEnvelope<T> }>): Promise<T> {
   return (await request).data.data;
 }
@@ -132,6 +155,17 @@ export const focusApi = {
         input,
       ),
     ),
+};
+
+export const timetableApi = {
+  list: () =>
+    data(api.get<ApiEnvelope<ApiTimetableEntry[]>>('/timetable')),
+  create: (input: TimetableInput) =>
+    data(api.post<ApiEnvelope<ApiTimetableEntry>>('/timetable', input)),
+  update: (id: string, input: Partial<TimetableInput>) =>
+    data(api.patch<ApiEnvelope<ApiTimetableEntry>>(`/timetable/${id}`, input)),
+  remove: (id: string) =>
+    data(api.delete<ApiEnvelope<{ deleted: true }>>(`/timetable/${id}`)),
 };
 
 export function taskSubject(task: ApiTask): ApiSubject | undefined {

@@ -49,7 +49,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:notifications": "node --experimental-strip-types ./scripts/test-notification-plan.ts"
+    "test:notifications": "node --experimental-strip-types ./scripts/test-notification-plan.ts",
+    "test:timetable": "node --experimental-strip-types ./scripts/test-timetable-status.ts"
   },
   "private": true
 }
