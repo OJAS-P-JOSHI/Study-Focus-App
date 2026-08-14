@@ -1,7 +1,8 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Text } from 'react-native';
 
 import { palette } from '@/constants/design';
+import { useAuthStore } from '@/stores/auth-store';
 
 const icons: Record<string, string> = {
   index: '◉',
@@ -12,6 +13,12 @@ const icons: Record<string, string> = {
 };
 
 export default function TabsLayout() {
+  const { ready, user } = useAuthStore();
+
+  if (ready && !user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <Tabs
       screenOptions={({ route }) => ({

@@ -26,6 +26,6 @@ async function bootstrap() {
       .map((origin) => origin.trim()),
   });
   app.enableShutdownHooks();
-  await app.listen(config.get<number>('PORT', 3000), '0.0.0.0');
+  await app.listen(config.get<number>('API_PORT', 3000), '0.0.0.0');
 }
 void bootstrap();

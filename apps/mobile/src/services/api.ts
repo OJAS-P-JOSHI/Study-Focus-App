@@ -6,10 +6,17 @@ import type { OfflineMutation } from '@/types';
 
 const ACCESS_KEY = 'study-focus.access-token';
 const REFRESH_KEY = 'study-focus.refresh-token';
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
 
 export const api = create({ baseURL: API_URL, timeout: 10_000 });
 let refreshPromise: Promise<string | null> | null = null;
+let authFailureHandler: (() => void) | null = null;
+
+type ApiEnvelope<T> = { success: true; data: T };
+
+export function setAuthFailureHandler(handler: () => void) {
+  authFailureHandler = handler;
+}
 
 export const tokenStorage = {
   async save(accessToken: string, refreshToken: string) {
@@ -38,15 +45,17 @@ async function refreshAccessToken() {
   const refreshToken = await tokenStorage.getRefresh();
   if (!refreshToken) return null;
   try {
-    const response = await axios.post<{ accessToken: string; refreshToken?: string }>(
+    const response = await axios.post<ApiEnvelope<{ accessToken: string; refreshToken?: string }>>(
       `${API_URL}/auth/refresh`,
       { refreshToken },
       { timeout: 10_000 },
     );
-    await tokenStorage.save(response.data.accessToken, response.data.refreshToken ?? refreshToken);
-    return response.data.accessToken;
+    const tokens = response.data.data;
+    await tokenStorage.save(tokens.accessToken, tokens.refreshToken ?? refreshToken);
+    return tokens.accessToken;
   } catch {
     await tokenStorage.clear();
+    authFailureHandler?.();
     return null;
   }
 }

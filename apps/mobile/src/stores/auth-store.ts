@@ -1,10 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
-import { api, tokenStorage } from '@/services/api';
+import { api, setAuthFailureHandler, tokenStorage } from '@/services/api';
 
 const LOCAL_MODE_KEY = 'study-focus.local-mode';
 type User = { id: string; name: string; email: string };
+type ApiEnvelope<T> = { success: true; data: T };
 type AuthState = {
   user: User | null;
   ready: boolean;
@@ -30,20 +31,27 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
     }
     try {
-      const { data } = await api.get<User>('/auth/me');
-      set({ user: data, ready: true });
+      const response = await api.get<ApiEnvelope<User>>('/auth/me');
+      set({ user: response.data.data, ready: true });
     } catch {
-      set({ ready: true });
+      await tokenStorage.clear();
+      set({ user: null, ready: true });
     }
   },
   login: async (email, password) => {
-    const { data } = await api.post<AuthResponse>('/auth/login', { email, password });
+    const response = await api.post<ApiEnvelope<AuthResponse>>('/auth/login', { email, password });
+    const data = response.data.data;
     await tokenStorage.save(data.accessToken, data.refreshToken);
     await SecureStore.deleteItemAsync(LOCAL_MODE_KEY);
     set({ user: data.user });
   },
   register: async (name, email, password) => {
-    const { data } = await api.post<AuthResponse>('/auth/register', { name, email, password });
+    const response = await api.post<ApiEnvelope<AuthResponse>>('/auth/register', {
+      name,
+      email,
+      password,
+    });
+    const data = response.data.data;
     await tokenStorage.save(data.accessToken, data.refreshToken);
     await SecureStore.deleteItemAsync(LOCAL_MODE_KEY);
     set({ user: data.user });
@@ -53,8 +61,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: { id: 'local', name: 'Focused learner', email: 'offline@local' } });
   },
   logout: async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Local sign-out must still complete if the API is unavailable.
+    }
     await tokenStorage.clear();
     await SecureStore.deleteItemAsync(LOCAL_MODE_KEY);
     set({ user: null });
   },
 }));
+
+setAuthFailureHandler(() => {
+  useAuthStore.setState({ user: null, ready: true });
+});
