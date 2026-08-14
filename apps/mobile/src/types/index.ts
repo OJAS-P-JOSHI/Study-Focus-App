@@ -24,6 +24,10 @@ export type FocusSession = {
   actualMinutes?: number;
   completionPercentage?: number;
   distractionCount: number;
+  offlineDistractions?: {
+    type: 'OTHER';
+    occurredAt: number;
+  }[];
   synced: boolean;
 };
 
@@ -34,6 +38,7 @@ export type OfflineMutation = {
   body?: unknown;
   createdAt: number;
   attempts: number;
+  localEntityId?: string;
 };
 
 export type Subject = { id: string; name: string; color: string; weeklyMinutes: number };

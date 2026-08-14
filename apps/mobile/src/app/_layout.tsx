@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import NetInfo from '@react-native-community/netinfo';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { palette } from '@/constants/design';
-import { flushOfflineQueue } from '@/services/api';
+import { flushOfflineQueue, setOfflineSyncHandler } from '@/services/api';
 import { NotificationService } from '@/services/notification-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { useFocusStore } from '@/stores/focus-store';
@@ -21,16 +22,25 @@ export default function RootLayout() {
   useEffect(() => {
     void initializeAuth();
     void NotificationService.initialize();
-    void flushOfflineQueue();
   }, [initializeAuth]);
 
   useEffect(() => {
     if (!hydrated) return;
+    setOfflineSyncHandler((localId, remoteId) => {
+      useFocusStore.getState().markSynced(localId, remoteId);
+    });
+    void flushOfflineQueue();
     void reconcile();
     const subscription = NotificationService.listenForForegroundReconciliation(
       () => useFocusStore.getState().session,
     );
-    return () => subscription.remove();
+    const unsubscribeNetwork = NetInfo.addEventListener((state) => {
+      if (state.isConnected) void flushOfflineQueue();
+    });
+    return () => {
+      subscription.remove();
+      unsubscribeNetwork();
+    };
   }, [hydrated, reconcile]);
 
   return (

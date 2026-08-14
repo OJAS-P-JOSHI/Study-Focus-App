@@ -170,6 +170,9 @@ export class FocusSession {
   @Prop({ type: Types.ObjectId, ref: 'Task' })
   taskId?: Types.ObjectId;
 
+  @Prop({ trim: true, maxlength: 120 })
+  clientSessionId?: string;
+
   @Prop({ required: true })
   startedAt!: Date;
 
@@ -215,6 +218,13 @@ FocusSessionSchema.index({ startedAt: 1 });
 FocusSessionSchema.index({ userId: 1, startedAt: -1 });
 FocusSessionSchema.index({ userId: 1, endedAt: -1 });
 FocusSessionSchema.index({ userId: 1, status: 1 });
+FocusSessionSchema.index(
+  { userId: 1, clientSessionId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { clientSessionId: { $type: 'string' } },
+  },
+);
 FocusSessionSchema.index(
   { userId: 1 },
   {

@@ -11,11 +11,20 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1
 export const api = create({ baseURL: API_URL, timeout: 10_000 });
 let refreshPromise: Promise<string | null> | null = null;
 let authFailureHandler: (() => void) | null = null;
+let offlineSyncHandler:
+  | ((localEntityId: string, remoteId: string) => void)
+  | null = null;
 
 type ApiEnvelope<T> = { success: true; data: T };
 
 export function setAuthFailureHandler(handler: () => void) {
   authFailureHandler = handler;
+}
+
+export function setOfflineSyncHandler(
+  handler: (localEntityId: string, remoteId: string) => void,
+) {
+  offlineSyncHandler = handler;
 }
 
 export const tokenStorage = {
@@ -80,7 +89,15 @@ export async function flushOfflineQueue() {
   for (let index = 0; index < queue.length; index += 1) {
     const item = queue[index];
     try {
-      await api.request({ method: item.method, url: item.path, data: item.body });
+      const response = await api.request<ApiEnvelope<{ id?: string }>>({
+        method: item.method,
+        url: item.path,
+        data: item.body,
+      });
+      const remoteId = response.data.data?.id;
+      if (item.localEntityId && remoteId) {
+        offlineSyncHandler?.(item.localEntityId, remoteId);
+      }
     } catch {
       failedAt = index;
       failedItem = { ...item, attempts: item.attempts + 1 };
