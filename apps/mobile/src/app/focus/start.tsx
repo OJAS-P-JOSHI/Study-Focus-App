@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Button, Card, Chip, Field, Heading, Screen, typography } from '@/components/ui';
 import { palette, space } from '@/constants/design';
 import { PRODUCTION_INTERVALS } from '@/services/notification-service';
-import { subjectsApi, tasksApi } from '@/services/resources';
+import { settingsApi, subjectsApi, tasksApi } from '@/services/resources';
 import { useFocusStore } from '@/stores/focus-store';
 
 const durations = [15, 25, 40, 50];
@@ -20,13 +20,17 @@ export default function StartFocusScreen() {
     queryKey: ['tasks', subjectId, 'TODO'],
     queryFn: () => tasksApi.list({ subjectId: subjectId || undefined, status: 'TODO' }),
   });
-  const [duration, setDuration] = useState(25);
-  const [reminder, setReminder] = useState(10);
+  const settings = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
+  const [durationOverride, setDuration] = useState<number | null>(null);
+  const [reminderOverride, setReminder] = useState<number | null>(null);
   const [intention, setIntention] = useState('');
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const subject = subjects.data?.find((item) => item.id === subjectId);
   const task = tasks.data?.find((item) => item.id === taskId);
+  const duration = durationOverride ?? settings.data?.defaultFocusMinutes ?? 50;
+  const reminder =
+    reminderOverride ?? settings.data?.defaultReminderIntervalMinutes ?? 10;
 
   return (
     <Screen>

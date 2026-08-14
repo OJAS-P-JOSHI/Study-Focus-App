@@ -3,7 +3,7 @@ import { isAxiosError } from 'axios';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { enqueueMutation } from '@/services/offline-queue';
+import { enqueueMutation, replaceQueue } from '@/services/offline-queue';
 import { NotificationService } from '@/services/notification-service';
 import { focusApi, type ApiFocusSession } from '@/services/resources';
 import type { FocusSession } from '@/types';
@@ -32,6 +32,7 @@ type FocusState = {
   logDistraction: () => Promise<void>;
   reconcile: () => Promise<void>;
   clearSummary: () => void;
+  resetLocal: () => Promise<void>;
 };
 
 const id = () => `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -286,6 +287,11 @@ export const useFocusStore = create<FocusState>()(
         await NotificationService.reconcile(session);
       },
       clearSummary: () => set({ lastCompleted: null }),
+      resetLocal: async () => {
+        await NotificationService.cancelSession();
+        await replaceQueue([]);
+        set({ session: null, lastCompleted: null });
+      },
     }),
     {
       name: '@study-focus/focus-store/v1',

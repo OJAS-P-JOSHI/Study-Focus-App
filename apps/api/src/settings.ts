@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Injectable,
   Module,
@@ -12,6 +13,7 @@ import { InjectModel, MongooseModule } from '@nestjs/mongoose';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -25,6 +27,21 @@ import type { AuthUser } from './common';
 import { CurrentUser, serialize } from './common';
 import { JwtAuthGuard } from './auth';
 import {
+  FocusSession,
+  FocusSessionDocument,
+  FocusSessionSchema,
+  StudyGoal,
+  StudyGoalDocument,
+  StudyGoalSchema,
+  Subject,
+  SubjectDocument,
+  SubjectSchema,
+  Task,
+  TaskDocument,
+  TaskSchema,
+  TimetableEntry,
+  TimetableEntryDocument,
+  TimetableEntrySchema,
   User,
   UserDocument,
   UserSchema,
@@ -35,6 +52,11 @@ import {
 
 export class UpdateSettingsDto {
   @IsOptional()
+  @IsString()
+  @Length(2, 80)
+  name?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(1440)
@@ -42,8 +64,7 @@ export class UpdateSettingsDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
-  @Max(240)
+  @IsIn([5, 10, 15, 20, 25, 30])
   defaultReminderIntervalMinutes?: number;
 
   @IsOptional()
@@ -92,6 +113,15 @@ export class SettingsService {
     @InjectModel(UserSettings.name)
     private readonly settings: Model<UserSettingsDocument>,
     @InjectModel(User.name) private readonly users: Model<UserDocument>,
+    @InjectModel(Subject.name)
+    private readonly subjects: Model<SubjectDocument>,
+    @InjectModel(Task.name) private readonly tasks: Model<TaskDocument>,
+    @InjectModel(TimetableEntry.name)
+    private readonly timetable: Model<TimetableEntryDocument>,
+    @InjectModel(FocusSession.name)
+    private readonly sessions: Model<FocusSessionDocument>,
+    @InjectModel(StudyGoal.name)
+    private readonly goals: Model<StudyGoalDocument>,
   ) {}
 
   async get(userId: string) {
@@ -101,16 +131,18 @@ export class SettingsService {
         {},
         { upsert: true, new: true, setDefaultsOnInsert: true },
       ),
-      this.users.findById(userId).select('timezone'),
+      this.users.findById(userId).select('name email timezone'),
     ]);
     return {
       ...serialize(settings!)!,
+      name: user?.name,
+      email: user?.email,
       timezone: user?.timezone ?? 'UTC',
     };
   }
 
   async update(userId: string, dto: UpdateSettingsDto) {
-    const { timezone, ...settingsPatch } = dto;
+    const { timezone, name, ...settingsPatch } = dto;
     if (timezone) {
       try {
         new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format();
@@ -125,10 +157,26 @@ export class SettingsService {
       settingsPatch,
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
-    if (timezone) {
-      await this.users.findByIdAndUpdate(userId, { timezone });
+    if (timezone || name) {
+      await this.users.findByIdAndUpdate(userId, {
+        ...(timezone ? { timezone } : {}),
+        ...(name ? { name: name.trim() } : {}),
+      });
     }
     return this.get(userId);
+  }
+
+  async resetData(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+    await Promise.all([
+      this.subjects.deleteMany({ userId: userObjectId }),
+      this.tasks.deleteMany({ userId: userObjectId }),
+      this.timetable.deleteMany({ userId: userObjectId }),
+      this.sessions.deleteMany({ userId: userObjectId }),
+      this.goals.deleteMany({ userId: userObjectId }),
+      this.settings.deleteOne({ userId: userObjectId }),
+    ]);
+    return { reset: true, settings: await this.get(userId) };
   }
 }
 
@@ -146,6 +194,11 @@ export class SettingsController {
   update(@CurrentUser() user: AuthUser, @Body() dto: UpdateSettingsDto) {
     return this.service.update(user.id, dto);
   }
+
+  @Delete('data')
+  resetData(@CurrentUser() user: AuthUser) {
+    return this.service.resetData(user.id);
+  }
 }
 
 @Module({
@@ -153,6 +206,11 @@ export class SettingsController {
     MongooseModule.forFeature([
       { name: UserSettings.name, schema: UserSettingsSchema },
       { name: User.name, schema: UserSchema },
+      { name: Subject.name, schema: SubjectSchema },
+      { name: Task.name, schema: TaskSchema },
+      { name: TimetableEntry.name, schema: TimetableEntrySchema },
+      { name: FocusSession.name, schema: FocusSessionSchema },
+      { name: StudyGoal.name, schema: StudyGoalSchema },
     ]),
   ],
   controllers: [SettingsController],

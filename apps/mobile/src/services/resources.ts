@@ -88,6 +88,8 @@ export type TimetableInput = {
 
 export type ApiSettings = {
   id: string;
+  name: string;
+  email: string;
   defaultFocusMinutes: number;
   defaultReminderIntervalMinutes: number;
   dailyStudyTargetMinutes: number;
@@ -221,6 +223,12 @@ export const settingsApi = {
   get: () => data(api.get<ApiEnvelope<ApiSettings>>('/settings')),
   update: (input: Partial<ApiSettings>) =>
     data(api.patch<ApiEnvelope<ApiSettings>>('/settings', input)),
+  resetData: () =>
+    data(
+      api.delete<ApiEnvelope<{ reset: true; settings: ApiSettings }>>(
+        '/settings/data',
+      ),
+    ),
 };
 
 export const analyticsApi = {
