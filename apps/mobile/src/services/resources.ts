@@ -119,6 +119,19 @@ export const focusApi = {
     data(api.post<ApiEnvelope<ApiFocusSession>>(`/focus-sessions/${id}/cancel`)),
   expire: (id: string) =>
     data(api.post<ApiEnvelope<ApiFocusSession>>(`/focus-sessions/${id}/expire`)),
+  addDistraction: (
+    id: string,
+    input: {
+      type: 'PHONE' | 'SOCIAL_MEDIA' | 'MESSAGING' | 'FATIGUE' | 'OTHER';
+      note?: string;
+    },
+  ) =>
+    data(
+      api.post<ApiEnvelope<{ type: string; note?: string; occurredAt: string }>>(
+        `/focus-sessions/${id}/distractions`,
+        input,
+      ),
+    ),
 };
 
 export function taskSubject(task: ApiTask): ApiSubject | undefined {

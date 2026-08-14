@@ -29,6 +29,7 @@ type FocusState = {
   complete: () => Promise<void>;
   cancel: () => Promise<void>;
   expire: () => Promise<void>;
+  logDistraction: () => Promise<void>;
   reconcile: () => Promise<void>;
   clearSummary: () => void;
 };
@@ -234,6 +235,28 @@ export const useFocusStore = create<FocusState>()(
         }
         set({ session: null });
         await NotificationService.cancelSession(session.id);
+      },
+      logDistraction: async () => {
+        const session = get().session;
+        if (!session || !['ACTIVE', 'PAUSED'].includes(session.status)) return;
+        if (session.synced) {
+          try {
+            await focusApi.addDistraction(session.id, { type: 'OTHER' });
+          } catch (error) {
+            if (!isOfflineError(error)) throw error;
+            await enqueueMutation({
+              method: 'post',
+              path: `/focus-sessions/${session.id}/distractions`,
+              body: { type: 'OTHER' },
+            });
+          }
+        }
+        set({
+          session: {
+            ...session,
+            distractionCount: session.distractionCount + 1,
+          },
+        });
       },
       reconcile: async () => {
         const session = get().session;

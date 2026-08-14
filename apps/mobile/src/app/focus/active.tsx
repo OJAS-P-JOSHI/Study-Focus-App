@@ -17,7 +17,8 @@ function formatTime(ms: number) {
 }
 
 export default function ActiveFocusScreen() {
-  const { session, pause, resume, complete, cancel, expire } = useFocusStore();
+  const { session, pause, resume, complete, cancel, expire, logDistraction } =
+    useFocusStore();
   const [now, setNow] = useState(Date.now);
   const [recovery, setRecovery] = useState(false);
   const [actionError, setActionError] = useState('');
@@ -123,14 +124,27 @@ export default function ActiveFocusScreen() {
               .catch(() => setActionError('Could not finish the session. Please try again.'));
           }}
         />
+        <Button
+          label="I GOT DISTRACTED"
+          variant="ghost"
+          onPress={() => {
+            setActionError('');
+            void logDistraction()
+              .then(() => setRecovery(true))
+              .catch(() => setActionError('Could not record the distraction.'));
+          }}
+        />
         {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
       </View>
       <Modal visible={recovery} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <Card style={styles.modal}>
-            <Text style={styles.recoveryTitle}>Welcome back.</Text>
-            <Text style={typography.muted}>No judgment. Name the distraction, let it go, and return to the next small step.</Text>
-            <Button label="Return to focus" onPress={() => setRecovery(false)} />
+            <Text style={styles.recoveryTitle}>You&apos;re still in the session.</Text>
+            <Text style={typography.muted}>
+              No judgment. Let the distraction go and return to:{' '}
+              {session.task ?? session.subjectName}.
+            </Text>
+            <Button label="GET BACK TO WORK" onPress={() => setRecovery(false)} />
             <Button label="Pause for now" variant="ghost" onPress={() => void pause().then(() => setRecovery(false))} />
           </Card>
         </View>
