@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { ComponentProps, PropsWithChildren, ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -18,12 +18,20 @@ export function Screen({
   children,
   scroll = true,
   style,
-}: PropsWithChildren<{ scroll?: boolean; style?: ViewStyle }>) {
+  refreshControl,
+}: PropsWithChildren<{
+  scroll?: boolean;
+  style?: ViewStyle;
+  refreshControl?: ComponentProps<typeof ScrollView>['refreshControl'];
+}>) {
   const body = <View style={[styles.content, style]}>{children}</View>;
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}>
           {body}
         </ScrollView>
       ) : (

@@ -86,6 +86,29 @@ export type TimetableInput = {
   isEnabled?: boolean;
 };
 
+export type ApiSettings = {
+  id: string;
+  defaultFocusMinutes: number;
+  defaultReminderIntervalMinutes: number;
+  dailyStudyTargetMinutes: number;
+  weeklyStudyTargetMinutes: number;
+  minimumStreakMinutes: number;
+  theme: 'DARK' | 'LIGHT' | 'SYSTEM';
+  soundEnabled: boolean;
+  vibrationEnabled: boolean;
+  notificationsEnabled: boolean;
+  timezone: string;
+};
+
+export type AnalyticsOverview = {
+  today: { date: string; minutes: number; sessions: number; distractions: number };
+  weeklyMinutes: number;
+  monthlyMinutes: number;
+  totalMinutes: number;
+  completedSessions: number;
+  streak: { current: number; longest: number };
+};
+
 async function data<T>(request: Promise<{ data: ApiEnvelope<T> }>): Promise<T> {
   return (await request).data.data;
 }
@@ -166,6 +189,17 @@ export const timetableApi = {
     data(api.patch<ApiEnvelope<ApiTimetableEntry>>(`/timetable/${id}`, input)),
   remove: (id: string) =>
     data(api.delete<ApiEnvelope<{ deleted: true }>>(`/timetable/${id}`)),
+};
+
+export const settingsApi = {
+  get: () => data(api.get<ApiEnvelope<ApiSettings>>('/settings')),
+  update: (input: Partial<ApiSettings>) =>
+    data(api.patch<ApiEnvelope<ApiSettings>>('/settings', input)),
+};
+
+export const analyticsApi = {
+  overview: () =>
+    data(api.get<ApiEnvelope<AnalyticsOverview>>('/analytics/overview')),
 };
 
 export function taskSubject(task: ApiTask): ApiSubject | undefined {
