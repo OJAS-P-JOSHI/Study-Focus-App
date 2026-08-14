@@ -48,7 +48,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:notifications": "node --experimental-strip-types ./scripts/test-notification-plan.ts"
   },
   "private": true
 }

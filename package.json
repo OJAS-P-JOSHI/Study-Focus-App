@@ -17,5 +17,9 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   }
 }

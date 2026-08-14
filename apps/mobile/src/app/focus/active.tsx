@@ -5,6 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Card, typography } from '@/components/ui';
 import { palette, radius, space } from '@/constants/design';
+import {
+  NotificationService,
+  type ReminderStatus,
+} from '@/services/notification-service';
 import { getRemainingMs, useFocusStore } from '@/stores/focus-store';
 
 function formatTime(ms: number) {
@@ -14,16 +18,22 @@ function formatTime(ms: number) {
 
 export default function ActiveFocusScreen() {
   const { session, pause, resume, complete, cancel, expire } = useFocusStore();
-  const [, render] = useState(0);
+  const [now, setNow] = useState(Date.now);
   const [recovery, setRecovery] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [reminderStatus, setReminderStatus] = useState<ReminderStatus | null>(null);
   const leftAt = useRef<number | null>(null);
   const expiring = useRef(false);
 
   useEffect(() => {
-    const timer = setInterval(() => render((value) => value + 1), 1000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    void NotificationService.getStatus(session.id).then(setReminderStatus);
+  }, [session]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -53,8 +63,11 @@ export default function ActiveFocusScreen() {
     router.replace('/(tabs)');
     return null;
   }
-  const remaining = getRemainingMs(session);
+  const remaining = getRemainingMs(session, now);
   const progress = 1 - remaining / (session.durationMinutes * 60_000);
+  const nextReminderMs = reminderStatus?.nextReminderAt
+    ? Math.max(0, reminderStatus.nextReminderAt - now)
+    : null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -78,6 +91,15 @@ export default function ActiveFocusScreen() {
         </View>
         <Text style={styles.subject}>{session.subjectName}</Text>
         {session.task ? <Text style={styles.task}>{session.task}</Text> : null}
+        {session.status === 'PAUSED' ? (
+          <Text style={styles.reminder}>Reminders paused</Text>
+        ) : reminderStatus && reminderStatus.permission !== 'granted' ? (
+          <Text style={styles.warning}>Reminders disabled in system settings</Text>
+        ) : nextReminderMs !== null ? (
+          <Text style={styles.reminder}>Next return reminder in {formatTime(nextReminderMs)}</Text>
+        ) : (
+          <Text style={styles.reminder}>No more reminders before this session ends</Text>
+        )}
         <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(2, progress * 100)}%` }]} /></View>
       </View>
       <View style={styles.controls}>
@@ -85,9 +107,10 @@ export default function ActiveFocusScreen() {
           label={session.status === 'PAUSED' ? 'Resume' : 'Pause'}
           onPress={() => {
             setActionError('');
-            void (session.status === 'PAUSED' ? resume() : pause()).catch(() =>
-              setActionError('Could not change the session state.'),
-            );
+            void (session.status === 'PAUSED' ? resume() : pause())
+              .then(() => NotificationService.getStatus(session.id))
+              .then(setReminderStatus)
+              .catch(() => setActionError('Could not change the session state.'));
           }}
         />
         <Button
@@ -128,6 +151,8 @@ const styles = StyleSheet.create({
   remaining: { color: palette.muted, letterSpacing: 2, fontSize: 10, fontWeight: '800' },
   subject: { color: palette.text, fontSize: 24, fontWeight: '800', marginTop: space.lg },
   task: { color: palette.muted, fontSize: 15 },
+  reminder: { color: palette.muted, fontSize: 13, marginTop: space.sm },
+  warning: { color: palette.warning, fontSize: 13, marginTop: space.sm },
   progressTrack: { width: 180, height: 4, backgroundColor: palette.border, borderRadius: 4, marginTop: space.md, overflow: 'hidden' },
   progressFill: { height: 4, backgroundColor: palette.primary },
   controls: { gap: space.sm },

@@ -2,6 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
 
+import {
+  buildReminderPlan,
+  focusReminderIds,
+} from '@/services/notification-plan';
 import type { FocusSession } from '@/types';
 
 const STORAGE_KEY = '@study-focus/notifications/v1';
@@ -11,8 +15,15 @@ export const PRODUCTION_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
 type NotificationRecord = {
   sessionId: string;
   notificationIds: string[];
+  firesAt?: number[];
   intervalMinutes: number;
   timezone: string;
+};
+
+export type ReminderStatus = {
+  permission: 'granted' | 'denied' | 'undetermined';
+  nextReminderAt: number | null;
+  scheduledCount: number;
 };
 
 const timezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
@@ -62,13 +73,23 @@ export const NotificationService = {
 
   async cancelSession(sessionId?: string) {
     const record = await readRecord();
-    if (!record || (sessionId && record.sessionId !== sessionId)) return;
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
+    const discoveredIds = focusReminderIds(
+      scheduled.map(({ identifier, content }) => ({
+        identifier,
+        data: content.data,
+      })),
+      sessionId,
+    );
+    const recordedIds =
+      record && (!sessionId || record.sessionId === sessionId) ? record.notificationIds : [];
+    const ids = [...new Set([...recordedIds, ...discoveredIds])];
     await Promise.all(
-      record.notificationIds.map((id) =>
+      ids.map((id) =>
         Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined),
       ),
     );
-    await writeRecord(null);
+    if (record && (!sessionId || record.sessionId === sessionId)) await writeRecord(null);
   },
 
   async scheduleForActiveSession(
@@ -82,24 +103,28 @@ export const NotificationService = {
     if (!(await this.requestPermission())) return false;
 
     const existing = await readRecord();
+    const plan = buildReminderPlan(session.id, Date.now(), session.endsAt, interval);
     if (
       existing?.sessionId === session.id &&
       existing.intervalMinutes === interval &&
       existing.timezone === timezone() &&
-      existing.notificationIds.length > 0
+      Array.isArray(existing.firesAt)
     ) {
       const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-      if (existing.notificationIds.every((id) => scheduled.some((item) => item.identifier === id))) {
+      const futureIds = existing.notificationIds.filter(
+        (_, index) => (existing.firesAt?.[index] ?? Number.POSITIVE_INFINITY) > Date.now(),
+      );
+      if (futureIds.every((id) => scheduled.some((item) => item.identifier === id))) {
         return true;
       }
     }
-    if (existing) await this.cancelSession(existing.sessionId);
+    await this.cancelSession();
 
     const notificationIds: string[] = [];
-    const intervalMs = interval * 60_000;
     try {
-      for (let firesAt = Date.now() + intervalMs; firesAt < session.endsAt; firesAt += intervalMs) {
+      for (const reminder of plan) {
         const id = await Notifications.scheduleNotificationAsync({
+          identifier: reminder.identifier,
           content: {
             title: 'Return to your focus',
             body: `${session.subjectName} is still in progress. Take one calm breath and continue.`,
@@ -107,7 +132,7 @@ export const NotificationService = {
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.DATE,
-            date: new Date(firesAt),
+            date: new Date(reminder.firesAt),
             ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
           },
         });
@@ -124,10 +149,34 @@ export const NotificationService = {
     await writeRecord({
       sessionId: session.id,
       notificationIds,
+      firesAt: plan.map((reminder) => reminder.firesAt),
       intervalMinutes: interval,
       timezone: timezone(),
     });
     return true;
+  },
+
+  async getStatus(sessionId?: string): Promise<ReminderStatus> {
+    if (Platform.OS === 'web') {
+      return { permission: 'denied', nextReminderAt: null, scheduledCount: 0 };
+    }
+    const permissions = await Notifications.getPermissionsAsync();
+    const permission = permissions.granted
+      ? 'granted'
+      : permissions.status === Notifications.PermissionStatus.DENIED
+        ? 'denied'
+        : 'undetermined';
+    const record = await readRecord();
+    if (!record || (sessionId && record.sessionId !== sessionId)) {
+      return { permission, nextReminderAt: null, scheduledCount: 0 };
+    }
+    const now = Date.now();
+    const future = (record.firesAt ?? []).filter((firesAt) => firesAt > now);
+    return {
+      permission,
+      nextReminderAt: future[0] ?? null,
+      scheduledCount: future.length,
+    };
   },
 
   async reconcile(
@@ -148,7 +197,10 @@ export const NotificationService = {
       return;
     }
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    if (!record.notificationIds.every((id) => scheduled.some((item) => item.identifier === id))) {
+    const futureIds = record.notificationIds.filter(
+      (_, index) => (record.firesAt?.[index] ?? Number.POSITIVE_INFINITY) > Date.now(),
+    );
+    if (!futureIds.every((id) => scheduled.some((item) => item.identifier === id))) {
       await this.scheduleForActiveSession(session, allowDevMinute);
     }
   },
