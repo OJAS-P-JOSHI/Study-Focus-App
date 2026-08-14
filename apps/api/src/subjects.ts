@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -32,7 +33,20 @@ import { CurrentUser, serialize, serializeMany } from './common';
 
 import { JwtAuthGuard } from './auth';
 
-import { Subject, SubjectDocument, SubjectSchema } from './schemas';
+import {
+  FocusSession,
+  FocusSessionDocument,
+  FocusSessionSchema,
+  Subject,
+  SubjectDocument,
+  SubjectSchema,
+  Task,
+  TaskDocument,
+  TaskSchema,
+  TimetableEntry,
+  TimetableEntryDocument,
+  TimetableEntrySchema,
+} from './schemas';
 
 export class CreateSubjectDto {
   @IsString()
@@ -96,6 +110,11 @@ export class SubjectsService {
   constructor(
     @InjectModel(Subject.name)
     private readonly subjects: Model<SubjectDocument>,
+    @InjectModel(Task.name) private readonly tasks: Model<TaskDocument>,
+    @InjectModel(TimetableEntry.name)
+    private readonly timetable: Model<TimetableEntryDocument>,
+    @InjectModel(FocusSession.name)
+    private readonly sessions: Model<FocusSessionDocument>,
   ) {}
 
   async list(userId: string) {
@@ -135,8 +154,8 @@ export class SubjectsService {
   async update(userId: string, id: string, dto: UpdateSubjectDto) {
     await this.get(userId, id);
 
-    const subject = await this.subjects.findByIdAndUpdate(
-      id,
+    const subject = await this.subjects.findOneAndUpdate(
+      { _id: id, userId: new Types.ObjectId(userId) },
 
       { ...dto, ...(dto.name ? { name: dto.name.trim() } : {}) },
 
@@ -149,7 +168,22 @@ export class SubjectsService {
   async remove(userId: string, id: string) {
     await this.get(userId, id);
 
-    await this.subjects.findByIdAndDelete(id);
+    const subjectId = new Types.ObjectId(id);
+    const [task, timetable, session] = await Promise.all([
+      this.tasks.exists({ userId: new Types.ObjectId(userId), subjectId }),
+      this.timetable.exists({ userId: new Types.ObjectId(userId), subjectId }),
+      this.sessions.exists({ userId: new Types.ObjectId(userId), subjectId }),
+    ]);
+    if (task || timetable || session) {
+      throw new ConflictException(
+        'Subject has related study data; deactivate it instead of deleting it',
+      );
+    }
+
+    await this.subjects.deleteOne({
+      _id: subjectId,
+      userId: new Types.ObjectId(userId),
+    });
 
     return { deleted: true };
   }
@@ -194,7 +228,12 @@ export class SubjectsController {
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Subject.name, schema: SubjectSchema }]),
+    MongooseModule.forFeature([
+      { name: Subject.name, schema: SubjectSchema },
+      { name: Task.name, schema: TaskSchema },
+      { name: TimetableEntry.name, schema: TimetableEntrySchema },
+      { name: FocusSession.name, schema: FocusSessionSchema },
+    ]),
   ],
 
   controllers: [SubjectsController],

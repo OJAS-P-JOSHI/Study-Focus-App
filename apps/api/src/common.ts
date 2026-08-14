@@ -9,6 +9,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   NestInterceptor,
 } from '@nestjs/common';
 
@@ -42,6 +43,8 @@ export class SuccessEnvelopeInterceptor implements NestInterceptor {
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ApiExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
 
@@ -77,6 +80,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
       code = 'CONFLICT';
 
       message = 'A record with these values already exists';
+    } else if (exception instanceof Error) {
+      this.logger.error(exception.message, exception.stack);
     }
 
     response.status(status).json({

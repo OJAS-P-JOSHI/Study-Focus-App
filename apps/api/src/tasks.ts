@@ -195,8 +195,8 @@ export class TasksService {
 
     const task = await this.tasks
 
-      .findByIdAndUpdate(
-        id,
+      .findOneAndUpdate(
+        { _id: id, userId: new Types.ObjectId(userId) },
 
         {
           ...dto,
@@ -226,23 +226,24 @@ export class TasksService {
   }
 
   async complete(userId: string, id: string) {
-    await this.get(userId, id);
-
-    const task = await this.tasks.findByIdAndUpdate(
-      id,
+    const task = await this.tasks.findOneAndUpdate(
+      { _id: id, userId: new Types.ObjectId(userId) },
 
       { status: TaskStatus.COMPLETED, completedAt: new Date() },
 
       { new: true },
     );
+    if (!task) throw new NotFoundException('Task not found');
 
-    return serialize(task!);
+    return serialize(task);
   }
 
   async remove(userId: string, id: string) {
-    await this.get(userId, id);
-
-    await this.tasks.findByIdAndDelete(id);
+    const result = await this.tasks.deleteOne({
+      _id: id,
+      userId: new Types.ObjectId(userId),
+    });
+    if (!result.deletedCount) throw new NotFoundException('Task not found');
 
     return { deleted: true };
   }
