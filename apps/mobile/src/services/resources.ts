@@ -107,6 +107,32 @@ export type AnalyticsOverview = {
   totalMinutes: number;
   completedSessions: number;
   streak: { current: number; longest: number };
+  rangeDays: number;
+  rangeMinutes: number;
+  rangeSessions: number;
+  averageSessionDuration: number;
+  averageDistractions: number;
+  timetableAdherence: { planned: number; completed: number; percentage: number };
+};
+
+export type AnalyticsHistory = {
+  days: number;
+  startDate: string;
+  endDate: string;
+  totalMinutes: number;
+  sessions: number;
+  points: {
+    date: string;
+    minutes: number;
+    sessions: number;
+    distractions: number;
+  }[];
+};
+
+export type SubjectDistribution = {
+  subject: ApiSubject | null;
+  minutes: number;
+  sessions: number;
 };
 
 async function data<T>(request: Promise<{ data: ApiEnvelope<T> }>): Promise<T> {
@@ -198,8 +224,24 @@ export const settingsApi = {
 };
 
 export const analyticsApi = {
-  overview: () =>
-    data(api.get<ApiEnvelope<AnalyticsOverview>>('/analytics/overview')),
+  overview: (days: 7 | 30 | 90 = 30) =>
+    data(
+      api.get<ApiEnvelope<AnalyticsOverview>>('/analytics/overview', {
+        params: { days },
+      }),
+    ),
+  history: (days: 7 | 30 | 90) =>
+    data(
+      api.get<ApiEnvelope<AnalyticsHistory>>('/analytics/history', {
+        params: { days },
+      }),
+    ),
+  subjects: (days: 7 | 30 | 90) =>
+    data(
+      api.get<ApiEnvelope<SubjectDistribution[]>>('/analytics/subjects', {
+        params: { days },
+      }),
+    ),
 };
 
 export function taskSubject(task: ApiTask): ApiSubject | undefined {

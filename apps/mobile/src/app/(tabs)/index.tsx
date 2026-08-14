@@ -17,7 +17,10 @@ import { useFocusStore } from '@/stores/focus-store';
 export default function DashboardScreen() {
   const user = useAuthStore((state) => state.user);
   const session = useFocusStore((state) => state.session);
-  const overview = useQuery({ queryKey: ['analytics', 'overview'], queryFn: analyticsApi.overview });
+  const overview = useQuery({
+    queryKey: ['analytics', 'overview', 30],
+    queryFn: () => analyticsApi.overview(30),
+  });
   const settings = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
   const timetable = useQuery({ queryKey: ['timetable'], queryFn: timetableApi.list });
   const sessions = useQuery({ queryKey: ['focus-sessions'], queryFn: () => focusApi.list() });

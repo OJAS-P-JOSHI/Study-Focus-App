@@ -213,6 +213,7 @@ export const FocusSessionSchema = SchemaFactory.createForClass(FocusSession);
 FocusSessionSchema.index({ userId: 1 });
 FocusSessionSchema.index({ startedAt: 1 });
 FocusSessionSchema.index({ userId: 1, startedAt: -1 });
+FocusSessionSchema.index({ userId: 1, endedAt: -1 });
 FocusSessionSchema.index({ userId: 1, status: 1 });
 FocusSessionSchema.index(
   { userId: 1 },
