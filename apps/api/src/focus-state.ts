@@ -1,10 +1,10 @@
 import { ConflictException } from '@nestjs/common';
 import { FocusSessionStatus } from './enums';
 
-type Transition = 'pause' | 'resume' | 'complete' | 'cancel';
+type Transition = 'pause' | 'resume' | 'complete' | 'cancel' | 'expire';
 
 const transitions: Record<FocusSessionStatus, readonly Transition[]> = {
-  ACTIVE: ['pause', 'complete', 'cancel'],
+  ACTIVE: ['pause', 'complete', 'cancel', 'expire'],
   PAUSED: ['resume', 'complete', 'cancel'],
   COMPLETED: [],
   CANCELLED: [],

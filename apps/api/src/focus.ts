@@ -189,6 +189,10 @@ export class FocusService {
     return this.finish(userId, id, FocusSessionStatus.CANCELLED);
   }
 
+  expire(userId: string, id: string) {
+    return this.finish(userId, id, FocusSessionStatus.EXPIRED);
+  }
+
   async addDistraction(userId: string, id: string, dto: CreateDistractionDto) {
     const session = await this.sessions.findOne({
       _id: id,
@@ -216,17 +220,32 @@ export class FocusService {
   private async finish(
     userId: string,
     id: string,
-    status: FocusSessionStatus.COMPLETED | FocusSessionStatus.CANCELLED,
+    status:
+      | FocusSessionStatus.COMPLETED
+      | FocusSessionStatus.CANCELLED
+      | FocusSessionStatus.EXPIRED,
   ) {
     const session = await this.sessions.findOne({
       _id: id,
       userId: new Types.ObjectId(userId),
     });
     if (!session) throw new NotFoundException('Focus session not found');
-    assertFocusTransition(
-      session.status,
-      status === FocusSessionStatus.COMPLETED ? 'complete' : 'cancel',
-    );
+    if (status === FocusSessionStatus.EXPIRED) {
+      const expiresAt =
+        session.startedAt.getTime() +
+        session.plannedMinutes * 60_000 +
+        session.totalPausedSeconds * 1000;
+      if (Date.now() < expiresAt) {
+        throw new ConflictException('Focus session has not reached its planned end');
+      }
+    }
+    const transition =
+      status === FocusSessionStatus.COMPLETED
+        ? 'complete'
+        : status === FocusSessionStatus.CANCELLED
+          ? 'cancel'
+          : 'expire';
+    assertFocusTransition(session.status, transition);
     const endedAt = new Date();
     const pendingPauseSeconds = session.pausedAt
       ? Math.max(
@@ -270,6 +289,9 @@ export class FocusService {
         userId: new Types.ObjectId(userId),
       });
       if (!task) throw new BadRequestException('Task not found');
+      if (subjectId && task.subjectId?.toString() !== subjectId) {
+        throw new BadRequestException('Task does not belong to the selected subject');
+      }
     }
   }
 }
@@ -312,6 +334,11 @@ export class FocusController {
   @Post(':id/cancel')
   cancel(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.service.cancel(user.id, id);
+  }
+
+  @Post(':id/expire')
+  expire(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.service.expire(user.id, id);
   }
 
   @Post(':id/distractions')

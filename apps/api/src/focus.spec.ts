@@ -7,6 +7,7 @@ describe('focus session state machine', () => {
     [FocusSessionStatus.ACTIVE, 'pause'],
     [FocusSessionStatus.ACTIVE, 'complete'],
     [FocusSessionStatus.ACTIVE, 'cancel'],
+    [FocusSessionStatus.ACTIVE, 'expire'],
     [FocusSessionStatus.PAUSED, 'resume'],
     [FocusSessionStatus.PAUSED, 'complete'],
     [FocusSessionStatus.PAUSED, 'cancel'],

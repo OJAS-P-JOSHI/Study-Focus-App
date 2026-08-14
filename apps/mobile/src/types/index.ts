@@ -1,9 +1,16 @@
-export type FocusStatus = 'IDLE' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
+export type FocusStatus =
+  | 'IDLE'
+  | 'ACTIVE'
+  | 'PAUSED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'EXPIRED';
 
 export type FocusSession = {
   id: string;
   subjectId?: string;
   subjectName: string;
+  taskId?: string;
   task?: string;
   durationMinutes: number;
   reminderMinutes: number;
@@ -14,6 +21,10 @@ export type FocusSession = {
   pausedAt?: number;
   totalPausedMs: number;
   completedAt?: number;
+  actualMinutes?: number;
+  completionPercentage?: number;
+  distractionCount: number;
+  synced: boolean;
 };
 
 export type OfflineMutation = {

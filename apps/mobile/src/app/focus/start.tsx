@@ -1,37 +1,71 @@
+import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button, Card, Chip, Field, Heading, Screen, typography } from '@/components/ui';
 import { palette, space } from '@/constants/design';
-import { subjects } from '@/data/sample-data';
 import { PRODUCTION_INTERVALS } from '@/services/notification-service';
+import { subjectsApi, tasksApi } from '@/services/resources';
 import { useFocusStore } from '@/stores/focus-store';
 
 const durations = [15, 25, 40, 50];
 
 export default function StartFocusScreen() {
   const start = useFocusStore((state) => state.start);
-  const [subject, setSubject] = useState(subjects[0]);
+  const subjects = useQuery({ queryKey: ['subjects'], queryFn: subjectsApi.list });
+  const [subjectId, setSubjectId] = useState('');
+  const [taskId, setTaskId] = useState('');
+  const tasks = useQuery({
+    queryKey: ['tasks', subjectId, 'TODO'],
+    queryFn: () => tasksApi.list({ subjectId: subjectId || undefined, status: 'TODO' }),
+  });
   const [duration, setDuration] = useState(25);
   const [reminder, setReminder] = useState(10);
-  const [task, setTask] = useState('');
+  const [intention, setIntention] = useState('');
   const [starting, setStarting] = useState(false);
+  const [error, setError] = useState('');
+  const subject = subjects.data?.find((item) => item.id === subjectId);
+  const task = tasks.data?.find((item) => item.id === taskId);
 
   return (
     <Screen>
       <Heading title="Set your intention" subtitle="Decide what matters before the timer begins." />
       <Text style={typography.sectionTitle}>Subject</Text>
       <View style={styles.wrap}>
-        {subjects.map((item) => (
-          <Chip key={item.id} label={item.name} selected={item.id === subject.id} onPress={() => setSubject(item)} />
+        {subjects.data?.filter((item) => item.isActive).map((item) => (
+          <Chip
+            key={item.id}
+            label={item.name}
+            selected={item.id === subjectId}
+            onPress={() => {
+              setSubjectId(item.id);
+              setTaskId('');
+            }}
+          />
+        ))}
+      </View>
+      {subjects.isLoading ? <Text style={typography.muted}>Loading subjects…</Text> : null}
+      {!subjects.isLoading && !subjects.data?.some((item) => item.isActive) ? (
+        <Text style={styles.error}>Create an active subject before starting focus.</Text>
+      ) : null}
+      <Text style={typography.sectionTitle}>Task (optional)</Text>
+      <View style={styles.wrap}>
+        <Chip label="No task" selected={!taskId} onPress={() => setTaskId('')} />
+        {tasks.data?.map((item) => (
+          <Chip
+            key={item.id}
+            label={item.title}
+            selected={taskId === item.id}
+            onPress={() => setTaskId(item.id)}
+          />
         ))}
       </View>
       <Field
-        label="What will you work on? (optional)"
-        placeholder="e.g. Complete problem set"
-        value={task}
-        onChangeText={setTask}
+        label="Intention (optional)"
+        placeholder="e.g. Complete exercises 1–10"
+        value={intention}
+        onChangeText={setIntention}
       />
       <Card>
         <Text style={typography.sectionTitle}>Focus duration</Text>
@@ -58,19 +92,29 @@ export default function StartFocusScreen() {
       <Button
         label="Begin focus"
         loading={starting}
+        disabled={!subject}
         onPress={async () => {
           setStarting(true);
-          await start({
-            subjectId: subject.id,
-            subjectName: subject.name,
-            task: task.trim() || undefined,
-            durationMinutes: duration,
-            reminderMinutes: reminder,
-            allowDevMinute: __DEV__ && reminder === 1,
-          });
-          router.replace('/focus/active');
+          setError('');
+          try {
+            await start({
+              subjectId: subject?.id,
+              subjectName: subject?.name ?? 'Focus',
+              taskId: task?.id,
+              task: (task?.title ?? intention.trim()) || undefined,
+              durationMinutes: duration,
+              reminderMinutes: reminder,
+              allowDevMinute: __DEV__ && reminder === 1,
+            });
+            router.replace('/focus/active');
+          } catch {
+            setError('Could not start this session. Check for another open session and try again.');
+          } finally {
+            setStarting(false);
+          }
         }}
       />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </Screen>
   );
 }
@@ -79,4 +123,5 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   note: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.sm },
   noteIcon: { color: palette.primary, fontSize: 24 },
+  error: { color: palette.danger },
 });

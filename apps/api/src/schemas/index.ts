@@ -214,6 +214,16 @@ FocusSessionSchema.index({ userId: 1 });
 FocusSessionSchema.index({ startedAt: 1 });
 FocusSessionSchema.index({ userId: 1, startedAt: -1 });
 FocusSessionSchema.index({ userId: 1, status: 1 });
+FocusSessionSchema.index(
+  { userId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: [FocusSessionStatus.ACTIVE, FocusSessionStatus.PAUSED] },
+    },
+    name: 'one_open_focus_session_per_user',
+  },
+);
 FocusSessionSchema.set('toJSON', { transform: jsonTransform });
 
 @Schema({ timestamps: true, collection: 'userSettings' })

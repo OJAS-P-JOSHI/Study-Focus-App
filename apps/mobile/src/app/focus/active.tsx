@@ -13,10 +13,12 @@ function formatTime(ms: number) {
 }
 
 export default function ActiveFocusScreen() {
-  const { session, pause, resume, complete, cancel } = useFocusStore();
+  const { session, pause, resume, complete, cancel, expire } = useFocusStore();
   const [, render] = useState(0);
   const [recovery, setRecovery] = useState(false);
+  const [actionError, setActionError] = useState('');
   const leftAt = useRef<number | null>(null);
+  const expiring = useRef(false);
 
   useEffect(() => {
     const timer = setInterval(() => render((value) => value + 1), 1000);
@@ -36,7 +38,14 @@ export default function ActiveFocusScreen() {
 
   useEffect(() => {
     if (session && session.status === 'ACTIVE' && getRemainingMs(session) === 0) {
-      void complete().then(() => router.replace('/focus/summary'));
+      if (expiring.current) return;
+      expiring.current = true;
+      void expire()
+        .then(() => router.replace('/(tabs)'))
+        .catch(() => {
+          expiring.current = false;
+          setActionError('Could not close the elapsed session. It remains saved locally.');
+        });
     }
   });
 
@@ -51,7 +60,12 @@ export default function ActiveFocusScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.top}>
         <Text style={styles.mode}>{session.status === 'PAUSED' ? 'PAUSED' : 'FOCUSING'}</Text>
-        <Pressable onPress={() => void cancel().then(() => router.replace('/(tabs)'))}>
+        <Pressable
+          onPress={() =>
+            void cancel()
+              .then(() => router.replace('/(tabs)'))
+              .catch(() => setActionError('Could not cancel the session.'))
+          }>
           <Text style={styles.close}>×</Text>
         </Pressable>
       </View>
@@ -69,13 +83,24 @@ export default function ActiveFocusScreen() {
       <View style={styles.controls}>
         <Button
           label={session.status === 'PAUSED' ? 'Resume' : 'Pause'}
-          onPress={() => void (session.status === 'PAUSED' ? resume() : pause())}
+          onPress={() => {
+            setActionError('');
+            void (session.status === 'PAUSED' ? resume() : pause()).catch(() =>
+              setActionError('Could not change the session state.'),
+            );
+          }}
         />
         <Button
           label="Finish session"
           variant="secondary"
-          onPress={() => void complete().then(() => router.replace('/focus/summary'))}
+          onPress={() => {
+            setActionError('');
+            void complete()
+              .then(() => router.replace('/focus/summary'))
+              .catch(() => setActionError('Could not finish the session. Please try again.'));
+          }}
         />
+        {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
       </View>
       <Modal visible={recovery} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
@@ -109,4 +134,5 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, backgroundColor: '#000000B8', alignItems: 'center', justifyContent: 'center', padding: space.lg },
   modal: { width: '100%', borderRadius: radius.lg },
   recoveryTitle: { color: palette.text, fontSize: 25, fontWeight: '800' },
+  error: { color: palette.danger, textAlign: 'center' },
 });

@@ -7,9 +7,19 @@ import { useFocusStore } from '@/stores/focus-store';
 
 export default function FocusSummaryScreen() {
   const { lastCompleted, clearSummary } = useFocusStore();
-  const minutes = lastCompleted
-    ? Math.max(1, Math.round(((lastCompleted.completedAt ?? lastCompleted.endsAt) - lastCompleted.startedAt - lastCompleted.totalPausedMs) / 60_000))
-    : 0;
+  const minutes =
+    lastCompleted?.actualMinutes ??
+    (lastCompleted
+      ? Math.max(
+          0,
+          Math.floor(
+            ((lastCompleted.completedAt ?? lastCompleted.endsAt) -
+              lastCompleted.startedAt -
+              lastCompleted.totalPausedMs) /
+              60_000,
+          ),
+        )
+      : 0);
   return (
     <Screen style={styles.screen}>
       <View style={styles.check}><Text style={styles.checkText}>✓</Text></View>

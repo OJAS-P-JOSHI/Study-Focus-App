@@ -45,6 +45,24 @@ export type TaskInput = {
   status?: TaskStatus;
 };
 
+export type ApiFocusStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+
+export type ApiFocusSession = {
+  id: string;
+  subjectId?: ApiSubject | string;
+  taskId?: ApiTask | string;
+  startedAt: string;
+  endedAt?: string;
+  pausedAt?: string;
+  totalPausedSeconds: number;
+  plannedMinutes: number;
+  actualMinutes: number;
+  reminderIntervalMinutes: number;
+  status: ApiFocusStatus;
+  completionPercentage: number;
+  distractionCount: number;
+};
+
 async function data<T>(request: Promise<{ data: ApiEnvelope<T> }>): Promise<T> {
   return (await request).data.data;
 }
@@ -73,6 +91,34 @@ export const tasksApi = {
     data(api.post<ApiEnvelope<ApiTask>>(`/tasks/${id}/complete`)),
   remove: (id: string) =>
     data(api.delete<ApiEnvelope<{ deleted: true }>>(`/tasks/${id}`)),
+};
+
+export const focusApi = {
+  start: (input: {
+    subjectId?: string;
+    taskId?: string;
+    plannedMinutes: number;
+    reminderIntervalMinutes: number;
+  }) =>
+    data(api.post<ApiEnvelope<ApiFocusSession>>('/focus-sessions', input)),
+  get: (id: string) =>
+    data(api.get<ApiEnvelope<ApiFocusSession>>(`/focus-sessions/${id}`)),
+  list: (status?: ApiFocusStatus) =>
+    data(
+      api.get<ApiEnvelope<ApiFocusSession[]>>('/focus-sessions', {
+        params: status ? { status } : undefined,
+      }),
+    ),
+  pause: (id: string) =>
+    data(api.post<ApiEnvelope<ApiFocusSession>>(`/focus-sessions/${id}/pause`)),
+  resume: (id: string) =>
+    data(api.post<ApiEnvelope<ApiFocusSession>>(`/focus-sessions/${id}/resume`)),
+  complete: (id: string) =>
+    data(api.post<ApiEnvelope<ApiFocusSession>>(`/focus-sessions/${id}/complete`)),
+  cancel: (id: string) =>
+    data(api.post<ApiEnvelope<ApiFocusSession>>(`/focus-sessions/${id}/cancel`)),
+  expire: (id: string) =>
+    data(api.post<ApiEnvelope<ApiFocusSession>>(`/focus-sessions/${id}/expire`)),
 };
 
 export function taskSubject(task: ApiTask): ApiSubject | undefined {
