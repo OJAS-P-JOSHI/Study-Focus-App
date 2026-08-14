@@ -115,7 +115,9 @@ export class AnalyticsService {
       rangeDays: days,
       rangeMinutes: rangeSummary?.minutes ?? 0,
       rangeSessions: rangeSummary?.sessions ?? 0,
-      averageSessionDuration: Math.round(rangeSummary?.averageSessionDuration ?? 0),
+      averageSessionDuration: Math.round(
+        rangeSummary?.averageSessionDuration ?? 0,
+      ),
       averageDistractions: Number(
         (rangeSummary?.averageDistractions ?? 0).toFixed(1),
       ),
@@ -306,7 +308,8 @@ export class AnalyticsService {
         if (entry.dayOfWeek !== local.dayOfWeek) continue;
         const isPast =
           local.date < this.dateKey(new Date(), timezone) ||
-          this.timeMinutes(entry.endTime) <= this.localParts(new Date(), timezone).minutes;
+          this.timeMinutes(entry.endTime) <=
+            this.localParts(new Date(), timezone).minutes;
         if (!isPast) continue;
         planned += 1;
         if (
@@ -340,7 +343,9 @@ export class AnalyticsService {
       minute: '2-digit',
       hourCycle: 'h23',
     }).formatToParts(date);
-    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    const values = Object.fromEntries(
+      parts.map((part) => [part.type, part.value]),
+    );
     const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(
       values.weekday,
     );

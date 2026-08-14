@@ -283,7 +283,9 @@ export class FocusService {
       startedAt.getTime() > now + 60_000 ||
       startedAt.getTime() < now - 7 * 86_400_000
     ) {
-      throw new BadRequestException('Offline session start is outside the allowed range');
+      throw new BadRequestException(
+        'Offline session start is outside the allowed range',
+      );
     }
     if (endedAt && (endedAt < startedAt || endedAt.getTime() > now + 60_000)) {
       throw new BadRequestException('Offline session end is invalid');
@@ -295,9 +297,11 @@ export class FocusService {
       throw new BadRequestException('Paused sessions require a valid pausedAt');
     }
     if (
-      [FocusSessionStatus.COMPLETED, FocusSessionStatus.CANCELLED, FocusSessionStatus.EXPIRED].includes(
-        dto.status,
-      ) &&
+      [
+        FocusSessionStatus.COMPLETED,
+        FocusSessionStatus.CANCELLED,
+        FocusSessionStatus.EXPIRED,
+      ].includes(dto.status) &&
       !endedAt
     ) {
       throw new BadRequestException('Closed sessions require endedAt');
@@ -315,9 +319,11 @@ export class FocusService {
     });
     if (
       existing &&
-      [FocusSessionStatus.COMPLETED, FocusSessionStatus.CANCELLED, FocusSessionStatus.EXPIRED].includes(
-        existing.status,
-      )
+      [
+        FocusSessionStatus.COMPLETED,
+        FocusSessionStatus.CANCELLED,
+        FocusSessionStatus.EXPIRED,
+      ].includes(existing.status)
     ) {
       return serialize(existing);
     }
@@ -380,7 +386,9 @@ export class FocusService {
         session.plannedMinutes * 60_000 +
         session.totalPausedSeconds * 1000;
       if (Date.now() < expiresAt) {
-        throw new ConflictException('Focus session has not reached its planned end');
+        throw new ConflictException(
+          'Focus session has not reached its planned end',
+        );
       }
     }
     const transition =
@@ -434,7 +442,9 @@ export class FocusService {
       });
       if (!task) throw new BadRequestException('Task not found');
       if (subjectId && task.subjectId?.toString() !== subjectId) {
-        throw new BadRequestException('Task does not belong to the selected subject');
+        throw new BadRequestException(
+          'Task does not belong to the selected subject',
+        );
       }
     }
   }

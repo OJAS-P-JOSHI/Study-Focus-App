@@ -225,7 +225,9 @@ export class TimetableService {
       });
       if (!task) throw new BadRequestException('Task not found');
       if (task.subjectId?.toString() !== subjectId) {
-        throw new BadRequestException('Task does not belong to the selected subject');
+        throw new BadRequestException(
+          'Task does not belong to the selected subject',
+        );
       }
     }
   }
